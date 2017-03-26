@@ -6,53 +6,12 @@
  */
 
 #include "router.hpp"
-#include "Settings.hpp"
-#include <boost/lexical_cast.hpp>
 
 #include <cstdint>
 #include <iostream>
-#include <iomanip>
 
 using namespace boost;
 using boost::asio::ip::udp;
-
-//!
-//! \brief serial_udp_router::init
-//! Initialization function to initialize class private data from
-//! configuration file
-//!
-void serial_udp_router::init()
-{
-    //! Read the settings from configuration file
-    std::unique_ptr<Settings> appSettings(new Settings("settings.ini"));
-
-    //! Get remote IP address and UDP port from settings file
-    std::string remote_ip = appSettings->getValue("Remote_IP");
-    uint32_t remote_udp_port = boost::lexical_cast<uint32_t>(appSettings->getValue("Remote_UDP_Port"));
-
-    //! Get local IP address and UDP port from settings file
-    std::string local_ip = appSettings->getValue("Local_IP");
-    uint32_t local_udp_port = boost::lexical_cast<uint32_t>(appSettings->getValue("Local_UDP_Port"));
-
-    //! Get COM Port and baud rate from settings file
-    com_port_name = appSettings->getValue("COM");
-    baud_rate = boost::lexical_cast<uint32_t>(appSettings->getValue("BAUD_RATE"));
-
-    //! Set remote endpoint value
-    remote_endpoint_.address(boost::asio::ip::address::from_string(remote_ip));
-    remote_endpoint_.port(remote_udp_port);
-
-    //! Set local endpoint value
-    local_endpoint.address(boost::asio::ip::address::from_string(local_ip));
-    local_endpoint.port(local_udp_port);
-
-    uint16_t width{45};
-    std::cout << std::setw(width) << std::setfill('=') << "" << std::endl;
-    std::cout << "Remote IP Address:Port => " << remote_ip << ":" <<  remote_udp_port << std::endl;
-    std::cout << "Local IP Address:Port => " << local_ip << ":" <<  local_udp_port << std::endl;
-    std::cout << "Serial COM Port => COM" << com_port_name << ", Baud Rate = " << baud_rate << std::endl;
-    std::cout << std::setw(width) << "=" << std::setfill(' ') << std::endl;
-}
 
 //!
 //! \brief serial_udp_router::serial_udp_router
@@ -60,22 +19,30 @@ void serial_udp_router::init()
 //! Class constructor responsible for opening the local socket and binding
 //! local ip address and udp port
 //!
-serial_udp_router::serial_udp_router(boost::asio::io_service& io_service) :
+serial_udp_router::serial_udp_router(boost::asio::io_service& io_service,
+                                     const connection_params &param) :
     socket_(io_service), ser_port(io_service)
 {
-    // Initialise class variables
-    init();
+
+    //! Set remote endpoint value
+    remote_endpoint_.address(boost::asio::ip::address::from_string(param.remote_ip));
+    remote_endpoint_.port(param.remote_udp_port);
+
+    //! Set local endpoint value
+    local_endpoint.address(boost::asio::ip::address::from_string(param.local_ip));
+    local_endpoint.port(param.local_udp_port);
 
     socket_.open(local_endpoint.protocol());
     //socket_.set_option(boost::asio::ip::udp::socket::reuse_address(true));
     socket_.bind(local_endpoint);
 
     std::string serial_port("COM");
-    serial_port += com_port_name;
+    serial_port += param.com_port_name;
 
     ser_port.open(serial_port);
-    ser_port.set_option(asio::serial_port_base::baud_rate(baud_rate));
+    ser_port.set_option(asio::serial_port_base::baud_rate(param.baud_rate));
 }
+
 
 //!
 //! \brief serial_udp_router::start_udp_receive
@@ -89,6 +56,7 @@ void serial_udp_router::start_udp_receive()
                             boost::asio::placeholders::error,
                             boost::asio::placeholders::bytes_transferred));
 }
+
 
 //!
 //! \brief serial_udp_router::handle_udp_receive
@@ -111,6 +79,7 @@ void serial_udp_router::handle_udp_receive(const boost::system::error_code& erro
     start_udp_receive();
 }
 
+
 //!
 //! \brief serial_udp_router::serial_write_handler
 //! This method is only used as a place holder handler hence it is not used.
@@ -121,6 +90,7 @@ void serial_udp_router::serial_write_handler(
     //std::cout << bytes_transferred << " written successfully\n";
 }
 
+
 //!
 //! \brief serial_udp_router::udp_wirte_handler
 //! This method is only used as a place holder handler hence it is not used.
@@ -130,6 +100,7 @@ void serial_udp_router::udp_wirte_handler(
         std::size_t /*bytes_transferred*/)
 {
 }
+
 
 //!
 //! \brief serial_udp_router::start_serial_receive
@@ -144,6 +115,7 @@ void serial_udp_router::start_serial_receive()
                                          boost::asio::placeholders::error(),
                                          boost::asio::placeholders::bytes_transferred()));
 }
+
 
 //!
 //! \brief serial_udp_router::handle_serial_receive
@@ -162,6 +134,7 @@ void serial_udp_router::handle_serial_receive(const  boost::system::error_code& 
                                       boost::asio::placeholders::error,
                                       boost::asio::placeholders::bytes_transferred));
 
+    //std::cout << "serial server: rx " << bytes_transferred << std::endl;
     //! Again start listening for serial data to keep io_service.run() busy
     start_serial_receive();
 }

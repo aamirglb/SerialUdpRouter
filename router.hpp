@@ -12,24 +12,37 @@ using boost::asio::ip::udp;
 
 class serial_udp_router
 {
+    enum { MaxBufSize = 256 };
+
     //! Udp related private data
     udp::socket socket_;
     udp::endpoint remote_endpoint_;
     udp::endpoint local_endpoint;
-    boost::array<char, 256> recv_buffer_;
+    boost::array<char, MaxBufSize> recv_buffer_;
 
     //! Serial port related private data
     boost::asio::serial_port ser_port;
     std::string com_port_name;
     uint32_t baud_rate;
-    boost::array<char, 256> serial_buffer;
+    boost::array<char, MaxBufSize> serial_buffer;
 
     void init();
 
 public:
 
+    //! Structure for storing the connection parameters
+    struct connection_params
+    {
+        std::string remote_ip;
+        uint32_t remote_udp_port;
+        std::string local_ip;
+        uint32_t local_udp_port;
+        std::string com_port_name;
+        uint32_t baud_rate;
+    };
+
     //! Constructor function
-    serial_udp_router(boost::asio::io_service& io_service);
+    serial_udp_router(boost::asio::io_service& io_service, const connection_params&  param);
 
     void start_udp_receive();
 
