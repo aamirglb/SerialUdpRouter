@@ -13,12 +13,10 @@
 /// Method to initialize the connection parameters for Serial-Ethernet
 /// conversion.
 ///
-void init(serial_udp_router::connection_params &param, std::string index)
+void init(const std::unique_ptr<Settings> &appSettings,
+          serial_udp_router::connection_params &param,
+          std::string index)
 {
-
-    //! Read the settings from configuration file
-    std::unique_ptr<Settings> appSettings(new Settings("settings.ini"));
-
     std::string remote_ip = "Remote_IP_" + index;
     std::string remote_udp_port = "Remote_UDP_Port_" + index;
     std::string local_ip = "Local_IP_" + index;
@@ -57,27 +55,33 @@ int main(int argc, char *argv[])
 {
     try
     {
+        //! Read the settings from configuration file
+        std::unique_ptr<Settings> appSettings(new Settings("settings.ini"));
+        const uint32_t no_of_connections = boost::lexical_cast<uint32_t>(appSettings->getValue("NO_OF_CONNECTIONS"));
+        std::cout << "No of Connections: " << no_of_connections << std::endl;
+
+        // Boost IO Service object for Async communication
         boost::asio::io_service io_service;
 
-        serial_udp_router::connection_params pair_1;
-        serial_udp_router::connection_params pair_2;
+        // Create an array of pointers with required number of connections
+        serial_udp_router *server[no_of_connections];
 
-        init(pair_1, "1");
-        init(pair_2, "2");
+        // UDP-Serial setting for each connection
+        serial_udp_router::connection_params conn_settings;
 
-        // Create the server object for pair 1
-        serial_udp_router server(io_service, pair_1);
+        // Create server objects
+        for(uint32_t i = 0; i < no_of_connections; ++i)
+        {
+            init(appSettings, conn_settings, std::to_string(i+1));
+            server[i] = new serial_udp_router(io_service, conn_settings);
+        }
 
-        // Start receiving serial data
-        server.start_serial_receive();
-
-        // Start receiving udp data
-        server.start_udp_receive();
-
-        // Create the server object for pair 2
-        serial_udp_router server2(io_service, pair_2);
-        server2.start_serial_receive();
-        server2.start_udp_receive();
+        // Start serial and udp service
+        for(uint32_t i = 0; i < no_of_connections; ++i)
+        {
+            server[i]->start_serial_receive();
+            server[i]->start_udp_receive();
+        }
 
         // Wait for all async calls to be over
         // Because of the design of server object, this function will never return
@@ -85,6 +89,6 @@ int main(int argc, char *argv[])
     }
     catch (std::exception& e)
     {
-        std::cerr << e.what() << std::endl;
+        std::cerr << "Exception: " << e.what() << std::endl;
     }
 }
